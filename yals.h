@@ -50,6 +50,7 @@ int yals_sat (Yals *);
 /*------------------------------------------------------------------------*/
 
 long long yals_flips (Yals *);
+long long yals_cb_changes (Yals *);
 long long yals_mems (Yals *);
 
 int yals_minimum (Yals *);
