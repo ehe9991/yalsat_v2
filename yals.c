@@ -1948,7 +1948,7 @@ static void yals_init_weight_to_score_table (Yals * yals) {
 
   // probSAT SC'13 values:
 
-       if (maxlen <= 3) cb = 100;	// from Adrian's thesis ...
+       if (maxlen <= 3) cb = 2.5;	// from Adrian's thesis ...
   else if (maxlen <= 4) cb = 2.85;
   else if (maxlen <= 5) cb = 3.7;
   else if (maxlen <= 6) cb = 5.1;
