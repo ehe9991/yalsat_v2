@@ -1063,12 +1063,12 @@ yals_compute_score_from_weighted_break (Yals * yals, unsigned w) {
 
   double s;
 
-  if (yals->strat.correct)
+  if (1) // (yals->strat.correct)
     s = (w < yals->exp.max.cb) ? 
           PEEK (yals->exp.table.cb, w) : yals->exp.eps.cb;
-  else
-    s = (w < yals->exp.max.two) ? 
-          PEEK (yals->exp.table.two, w) : yals->exp.eps.two;
+  // else
+  //   s = (w < yals->exp.max.two) ? 
+  //         PEEK (yals->exp.table.two, w) : yals->exp.eps.two;
 
   assert (s);
 
@@ -1494,6 +1494,7 @@ static void yals_update_minimum (Yals * yals) {
 }
 
 // BEGINING OF MODIFICATIONS
+/*------------------------------------------------------------------------*/
 
 // TODO: make yals_init_... call this
 static void modify_cb (Yals *yals, float cb) {
@@ -1508,18 +1509,6 @@ static void modify_cb (Yals *yals, float cb) {
 
   eps = 0;
   score = start;
-  for (i = 0; score; i++) {
-    // assert (i < 100000);
-    LOG ("exp2(-%d) = %g", i, score);
-    PUSH (yals->exp.table.two, score);
-    eps = score;
-    score *= .5;
-  }
-  assert (eps > 0);
-  assert (i == COUNT (yals->exp.table.two));
-  yals->exp.max.two = i;
-  yals->exp.eps.two = eps;
-  yals_msg (yals, 1, "exp2(<= %d) = %g", -i, eps);
 
   invcb = 1.0 / cb;
   assert (invcb < 1.0);
@@ -1532,11 +1521,14 @@ static void modify_cb (Yals *yals, float cb) {
     score *= invcb;
   }
   assert (eps > 0);
+  CLEAR (yals->exp.table.cb);
   assert (i == COUNT (yals->exp.table.cb));
   yals->exp.max.cb = i;
   yals->exp.eps.cb = eps;
   yals_msg (yals, 1, "pow(%f,(<= %d)) = %g", cb, -i, eps);
 }
+
+/*------------------------------------------------------------------------*/
 
 // Taken from https://stackoverflow.com/questions/5289613/generate-random-float-between-two-floats
 static float rand_float(float a, float b) {
@@ -1563,7 +1555,7 @@ static void yals_flip (Yals * yals) {
   } else {
     yals->stats.flips_since_last_changed++;
     if (yals->stats.flips_since_last_changed >= 100000) {
-      float new_cb = rand_float(2.0, 20.0);
+      float new_cb = rand_float(5.0, 6.0);
       yals->stats.cb_changes++;
       LOG ("changing cb to: %f\n", new_cb);
       modify_cb(yals, new_cb);
