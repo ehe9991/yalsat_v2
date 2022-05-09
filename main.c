@@ -280,6 +280,7 @@ static void stats () {
     (w ? 100.0*t/w/(double)threads : 0), threads);
 #else
   msg ("");
+  msg ("total number of cb changes: %lu", yals_cb_changes(yals));
   msg ("final minimum of %d unsatisfied clauses", yals_minimum (yals));
   if (verbose) yals_stats (yals);
   msg ("total process time of %.2f seconds", getime ());
@@ -810,6 +811,7 @@ DONE:
   if (flipsset) yals_setflipslimit (yals, flips);
   if (memsset) yals_setmemslimit (yals, mems);
   res = yals_sat (yals);
+  msg ("total number of cb changes:", yals_cb_changes(yals));
   msg ("");
 #endif
   if (res != 20) {

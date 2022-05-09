@@ -314,7 +314,7 @@ typedef struct Strat { STRATSTEMPLATE } Strat;
 
 typedef struct Stats {
   int best, worst, last, tmp, maxstacksize;
-  int64_t flips, bzflips, hits, unsum;
+  int64_t flips, bzflips, hits, unsum, current_best, flips_since_last_changed, cb_changes;
   struct {
     struct { int64_t count; } outer;
     struct { int64_t count, maxint; } inner;
@@ -1063,12 +1063,12 @@ yals_compute_score_from_weighted_break (Yals * yals, unsigned w) {
 
   double s;
 
-  if (yals->strat.correct)
+  if (1) // (yals->strat.correct)
     s = (w < yals->exp.max.cb) ? 
           PEEK (yals->exp.table.cb, w) : yals->exp.eps.cb;
-  else
-    s = (w < yals->exp.max.two) ? 
-          PEEK (yals->exp.table.two, w) : yals->exp.eps.two;
+  // else
+  //   s = (w < yals->exp.max.two) ? 
+  //         PEEK (yals->exp.table.two, w) : yals->exp.eps.two;
 
   assert (s);
 
@@ -1493,6 +1493,51 @@ static void yals_update_minimum (Yals * yals) {
   yals_check_global_invariant (yals);
 }
 
+// BEGINING OF MODIFICATIONS
+/*------------------------------------------------------------------------*/
+
+// TODO: make yals_init_... call this
+static void modify_cb (Yals *yals, float cb) {
+  double invcb, score, eps;
+  const double start = 1e150;
+  int maxlen = yals->maxlen;
+  unsigned i;
+
+  yals_msg (yals, 1,
+    "exponential base cb = %f for maxlen %d",
+    cb, maxlen);
+
+  eps = 0;
+  score = start;
+
+  invcb = 1.0 / cb;
+  assert (invcb < 1.0);
+  score = start;
+  eps = 0.0;
+  for (i = 0; score; i++) {
+    assert (i < 1000000);
+    PUSH (yals->exp.table.cb, score);
+    eps = score;
+    score *= invcb;
+  }
+  assert (eps > 0);
+  CLEAR (yals->exp.table.cb);
+  assert (i == COUNT (yals->exp.table.cb));
+  yals->exp.max.cb = i;
+  yals->exp.eps.cb = eps;
+  yals_msg (yals, 1, "pow(%f,(<= %d)) = %g", cb, -i, eps);
+}
+
+/*------------------------------------------------------------------------*/
+
+// Taken from https://stackoverflow.com/questions/5289613/generate-random-float-between-two-floats
+static float rand_float(float a, float b) {
+    float random = ((float) rand()) / (float) RAND_MAX;
+    float diff = b - a;
+    float r = random * diff;
+    return a + r;
+}
+
 static void yals_flip (Yals * yals) {
   int cidx = yals_pick_clause (yals);
   int lit = yals_pick_literal (yals, cidx);
@@ -1502,6 +1547,21 @@ static void yals_flip (Yals * yals) {
   yals_make_clauses_after_flipping_lit (yals, lit);
   yals_break_clauses_after_flipping_lit (yals, lit);
   yals_update_minimum (yals);
+
+  if (yals_minimum (yals) < yals->stats.current_best) {
+    yals->stats.current_best = yals_minimum (yals);
+    LOG ("flips since last changed: %d", yals->stats.flips_since_last_changed);
+    yals->stats.flips_since_last_changed = 0;
+  } else {
+    yals->stats.flips_since_last_changed++;
+    if (yals->stats.flips_since_last_changed >= 100000) {
+      float new_cb = rand_float(5.0, 6.0);
+      yals->stats.cb_changes++;
+      LOG ("changing cb to: %f\n", new_cb);
+      modify_cb(yals, new_cb);
+      yals->stats.flips_since_last_changed = 0;
+    }
+  }
 }
 
 /*------------------------------------------------------------------------*/
@@ -1950,7 +2010,7 @@ static void yals_init_weight_to_score_table (Yals * yals) {
 
        if (maxlen <= 3) cb = 2.5;	// from Adrian's thesis ...
   else if (maxlen <= 4) cb = 2.85;
-  else if (maxlen <= 5) cb = 3.7;
+  else if (maxlen <= 5) cb = 3.7; // 26 x 26
   else if (maxlen <= 6) cb = 5.1;
   else                  cb = 5.4;
 
@@ -2414,6 +2474,9 @@ Yals * yals_new_with_mem_mgr (void * mgr,
   yals->mem.free = f;
   yals->stats.tmp = INT_MAX;
   yals->stats.best = INT_MAX;
+  yals->stats.current_best = INT_MAX;
+  yals->stats.flips_since_last_changed = 0;
+  yals->stats.cb_changes = 0;
   yals->stats.last = INT_MAX;
   yals->limits.report.min = INT_MAX;
   yals_inc_allocated (yals, sizeof *yals);
@@ -3048,6 +3111,8 @@ int yals_deref (Yals * yals, int lit) {
 }
 
 int yals_minimum (Yals * yals) { return yals->stats.best; }
+
+long long yals_cb_changes (Yals * yals) { return yals->stats.cb_changes; }
 
 long long yals_flips (Yals * yals) { return yals->stats.flips; }
 
